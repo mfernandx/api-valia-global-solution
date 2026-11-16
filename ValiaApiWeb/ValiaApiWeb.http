@@ -1,0 +1,6 @@
+@ValiaApiWeb_HostAddress = http://localhost:5016
+
+GET {{ValiaApiWeb_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

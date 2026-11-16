@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+
+*.user
+*.suo
+
+logs/
+*.log
+
+appsettings.Development.json
+
+**/PrivateStorage/
