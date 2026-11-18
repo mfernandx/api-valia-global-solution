@@ -17,7 +17,7 @@ namespace ValiaApiWeb.Data.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.14")
+                .HasAnnotation("ProductVersion", "8.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             OracleModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -252,6 +252,55 @@ namespace ValiaApiWeb.Data.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("EVIDENCES", (string)null);
+                });
+
+            modelBuilder.Entity("ValiaApiWeb.Domain.Models.IdempotencyRecord", b =>
+                {
+                    b.Property<Guid>("IdempotencyRecordId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("IDEMPOTENCY_RECORD_ID");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TIMESTAMP(7) WITH TIME ZONE")
+                        .HasColumnName("CREATED_AT");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("NVARCHAR2(100)")
+                        .HasColumnName("IDEMPOTENCY_KEY");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("NVARCHAR2(150)")
+                        .HasColumnName("OPERATION");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("NVARCHAR2(64)")
+                        .HasColumnName("REQUEST_HASH");
+
+                    b.Property<string>("ResponseBody")
+                        .IsRequired()
+                        .HasColumnType("CLOB")
+                        .HasColumnName("RESPONSE_BODY");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("NUMBER(10)")
+                        .HasColumnName("STATUS_CODE");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("RAW(16)")
+                        .HasColumnName("USER_ID");
+
+                    b.HasKey("IdempotencyRecordId");
+
+                    b.HasIndex("UserId", "Operation", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("IDEMPOTENCY_RECORDS", (string)null);
                 });
 
             modelBuilder.Entity("ValiaApiWeb.Domain.Models.User", b =>

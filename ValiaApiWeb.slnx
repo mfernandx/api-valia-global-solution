@@ -2,5 +2,6 @@
   <Folder Name="/Itens de Solução/">
     <File Path=".gitignore" />
   </Folder>
+  <Project Path="ValiaApiWeb.Tests/ValiaApiWeb.Tests.csproj" />
   <Project Path="ValiaApiWeb/ValiaApiWeb.csproj" />
 </Solution>

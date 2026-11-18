@@ -1,5 +1,4 @@
-﻿
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ValiaApiWeb.Domain.Models;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -11,6 +10,7 @@ namespace ValiaApiWeb.Data
         {
         }
 
+        public DbSet<IdempotencyRecord> IdempotencyRecords { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Employment> Employments { get; set; }
         public DbSet<WorkShift> WorkShifts { get; set; }
@@ -58,7 +58,7 @@ namespace ValiaApiWeb.Data
 
             modelBuilder.Entity<Employment>(entity =>
             {
-                
+
                 entity.ToTable("EMPLOYMENTS");
                 entity.HasKey(e => e.EmploymentId);
                 entity.Property(e => e.EmploymentId).HasColumnName("EMPLOYMENT_ID").ValueGeneratedNever();
@@ -228,8 +228,23 @@ namespace ValiaApiWeb.Data
                 entity.HasOne(c => c.User).WithMany(u => u.CommunityComments).HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Restrict);
             });
 
+
+            modelBuilder.Entity<IdempotencyRecord>(entity =>
+            {
+                entity.ToTable("IDEMPOTENCY_RECORDS");
+                entity.HasKey(i => i.IdempotencyRecordId);
+                entity.Property(i => i.IdempotencyRecordId).HasColumnName("IDEMPOTENCY_RECORD_ID").ValueGeneratedNever();
+                entity.Property(i => i.UserId).HasColumnName("USER_ID").IsRequired();
+                entity.Property(i => i.Operation).HasColumnName("OPERATION").HasMaxLength(150).IsRequired();
+                entity.Property(i => i.IdempotencyKey).HasColumnName("IDEMPOTENCY_KEY").HasMaxLength(100).IsRequired();
+                entity.Property(i => i.RequestHash).HasColumnName("REQUEST_HASH").HasMaxLength(64).IsRequired();
+                entity.Property(i => i.ResponseBody).HasColumnName("RESPONSE_BODY").HasColumnType("CLOB").IsRequired();
+                entity.Property(i => i.StatusCode).HasColumnName("STATUS_CODE").IsRequired();
+                entity.Property(i => i.CreatedAt).HasColumnName("CREATED_AT").IsRequired();
+                entity.HasIndex(i => new { i.UserId, i.Operation, i.IdempotencyKey }).IsUnique();
+            });
+
         }
 
     }
 }
-
