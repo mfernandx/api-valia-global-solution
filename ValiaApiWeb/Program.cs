@@ -455,12 +455,10 @@ app.MapControllers();
 // CONFIGURAÇÃO DA PORTA PARA HOSPEDAGEM
 // ======================================================
 
-var port = Environment.GetEnvironmentVariable("PORT");
+var port = Environment.GetEnvironmentVariable("PORT") ?? "10000";
+app.Urls.Add($"http://0.0.0.0:{port}");
 
-if (!string.IsNullOrWhiteSpace(port))
-{
-    app.Urls.Add($"http://0.0.0.0:{port}");
-}
+
 
 // ======================================================
 // EXECUÇÃO

@@ -1,5 +1,4 @@
-﻿
-namespace ValiaApiWeb.DTOs.Responses
+﻿namespace ValiaApiWeb.DTOs.Responses
 {
     public class WorkShiftResponse
     {

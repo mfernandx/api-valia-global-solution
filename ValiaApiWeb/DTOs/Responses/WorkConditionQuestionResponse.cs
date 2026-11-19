@@ -1,5 +1,4 @@
-﻿
-using ValiaApiWeb.Domain.Enums;
+﻿using ValiaApiWeb.Domain.Enums;
 
 namespace ValiaApiWeb.DTOs.Responses
 {
