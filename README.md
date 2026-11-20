@@ -794,6 +794,235 @@ A API disponibiliza documentação interativa para explorar e testar seus endpoi
 
 ---
 
+## ⚙️ Implementações adicionais do Backend (.NET)
+
+Além das funcionalidades principais, o backend do **Valia** recebeu melhorias voltadas à disponibilidade, segurança operacional, controle de requisições, integridade dos dados e confiabilidade da aplicação.
+
+Essas implementações contribuem para uma API mais robusta, preparada para lidar com requisições repetidas, falhas de infraestrutura e necessidades de monitoramento.
+
+### 🚦 01. Rate Limiting
+
+Foi implementado um mecanismo global de limitação de requisições utilizando o middleware nativo de **Rate Limiting do ASP.NET Core**.
+
+O objetivo é controlar a quantidade de requisições recebidas por cliente em um determinado intervalo, reduzindo o risco de sobrecarga da aplicação.
+
+| Configuração | Implementação |
+|---|---|
+| **Estratégia** | Fixed Window |
+| **Limite** | 100 requisições |
+| **Intervalo** | 1 minuto |
+| **Identificação** | Endereço IP do cliente |
+| **Fila de espera** | Desabilitada |
+| **Resposta ao exceder o limite** | `429 Too Many Requests` |
+
+**Como funciona?**
+
+1. Cada cliente é identificado pelo seu endereço IP.
+2. A API contabiliza as requisições recebidas durante uma janela de um minuto.
+3. Até 100 requisições são permitidas nesse intervalo.
+4. Ao ultrapassar o limite, novas requisições são rejeitadas.
+5. A resposta inclui o cabeçalho `Retry-After`, indicando o tempo de espera para uma nova tentativa.
+
+**Exemplo de resposta:**
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 30
+```
+
+> [!TIP]
+> O Rate Limiting contribui para a estabilidade da aplicação, mas não substitui mecanismos adicionais de segurança, autenticação e proteção contra ataques distribuídos.
+
+---
+
+### 🔁 02. Idempotência na criação de ocorrências
+
+Foi implementado um mecanismo de **idempotência** no endpoint responsável pela criação de ocorrências trabalhistas:
+
+`POST /api/WorkOccurrence`
+
+A idempotência permite que uma operação seja repetida sem gerar múltiplos registros equivalentes quando a requisição já foi processada anteriormente.
+
+Isso é especialmente útil em situações de instabilidade de rede, nas quais o aplicativo pode reenviar uma requisição por não ter recebido a resposta original.
+
+#### Cabeçalho utilizado
+
+```http
+Idempotency-Key: chave-unica-da-requisicao
+```
+
+#### Funcionamento
+
+1. O cliente gera uma chave única para a operação.
+2. A chave é associada ao usuário autenticado e ao endpoint.
+3. O conteúdo da requisição é convertido em um hash **SHA-256**.
+4. A API verifica se já existe um registro correspondente.
+5. Se a mesma requisição já tiver sido processada, a resposta anterior é reutilizada.
+6. Se a chave for reutilizada com conteúdo diferente, a API retorna `409 Conflict`.
+
+| Cenário | Comportamento |
+|---|---|
+| Primeira requisição com chave inédita | Processa e registra a operação |
+| Mesma chave e mesmo conteúdo | Retorna a resposta registrada anteriormente |
+| Mesma chave e conteúdo diferente | Retorna `409 Conflict` |
+| Nova chave | Trata como uma nova operação |
+
+#### Persistência
+
+Os registros são armazenados no Oracle Database por meio do Entity Framework Core.
+
+A tabela `IDEMPOTENCY_RECORDS` foi adicionada ao mapeamento do `ValiaDbContext`.
+
+O banco utiliza um índice único para a combinação:
+
+**Usuário + Operação + Chave de idempotência**
+
+Essa restrição contribui para impedir duplicidades no registro das chaves.
+
+**Exemplo de requisição:**
+
+```http
+POST /api/WorkOccurrence
+Authorization: Bearer SEU_TOKEN_JWT
+Content-Type: application/json
+Idempotency-Key: 8f92b3d1-7a40-4a91-8f12-2e0c7a5d6b30
+```
+
+> [!IMPORTANT]
+> A chave de idempotência deve ser reutilizada apenas nas tentativas de repetir a mesma operação. Para registrar uma nova ocorrência, o cliente deve gerar uma nova chave.
+
+---
+
+### 🩺 03. Health Checks
+
+Foram adicionados endpoints de monitoramento para verificar a disponibilidade e a prontidão da API.
+
+| Endpoint | Tipo | Finalidade |
+|---|---|---|
+| `GET /health/live` | Liveness | Verifica se a aplicação está em execução |
+| `GET /health/ready` | Readiness | Verifica se a aplicação está pronta para atender requisições |
+
+#### Liveness — `/health/live`
+
+Indica se o processo da aplicação está ativo e consegue responder às verificações básicas de disponibilidade.
+
+#### Readiness — `/health/ready`
+
+Verifica se a aplicação está operacional, considerando também a disponibilidade do Oracle Database.
+
+Para isso, foi implementado o componente `OracleDatabaseHealthCheck`, que utiliza o Entity Framework Core para verificar a conectividade com o banco.
+
+**Exemplo de comportamento:**
+
+| Situação | Liveness | Readiness |
+|---|---|---|
+| API e Oracle disponíveis | Saudável | Saudável |
+| API ativa, Oracle indisponível | Saudável | Não saudável |
+| API indisponível | Sem resposta | Sem resposta |
+
+> [!NOTE]
+> A separação entre *liveness* e *readiness* permite distinguir falhas da própria aplicação de problemas em dependências externas, como o banco de dados.
+
+---
+
+### 🌱 04. Seed de perguntas iniciais
+
+Foi integrado o `WorkConditionQuestionSeeder`, responsável pela inicialização das perguntas do questionário de condições de trabalho.
+
+O mecanismo foi configurado para execução no ambiente **Development**, permitindo preparar os dados necessários para o funcionamento do módulo.
+
+#### Características
+
+- Executado somente no ambiente de desenvolvimento.
+- Verifica se a conexão Oracle foi configurada.
+- Não executa quando a connection string está ausente.
+- Utiliza um escopo de serviços para acessar o `ValiaDbContext`.
+- Possui tratamento de exceções.
+- Registra eventuais falhas sem impedir a inicialização da aplicação.
+
+**Finalidade:** disponibilizar os dados iniciais do questionário, reduzindo a necessidade de inserções manuais durante o desenvolvimento.
+
+---
+
+### 🌐 05. Configuração de CORS
+
+Foi configurada a política `AllowFrontend` para permitir a comunicação entre o aplicativo frontend e a API.
+
+Durante o desenvolvimento, a política permite:
+
+- Requisições de diferentes origens.
+- Métodos HTTP utilizados pela aplicação.
+- Cabeçalhos necessários à comunicação.
+- Envio do token JWT pelo cabeçalho `Authorization`.
+
+Essa configuração facilita os testes locais e a integração com o aplicativo desenvolvido em React Native e Expo.
+
+> [!WARNING]
+> Em produção, recomenda-se restringir as origens autorizadas, evitando uma política excessivamente permissiva.
+
+---
+
+### 📄 06. Configurações complementares
+
+Também foram incorporadas melhorias na configuração central da aplicação, especialmente no arquivo `Program.cs`.
+
+| Recurso | Implementação |
+|---|---|
+| **Serialização JSON** | Enums representados como strings |
+| **Oracle** | Compatibilidade com Database Version 21 |
+| **OpenAPI** | Documentação dos endpoints |
+| **Autenticação Bearer** | Configuração do esquema JWT na documentação |
+| **Scalar** | Interface interativa com tema BluePlanet |
+| **CORS** | Política `AllowFrontend` |
+| **Rate Limiting** | Controle global de requisições |
+| **Middleware** | Organização do pipeline HTTP |
+
+O pipeline de requisições contempla os componentes de roteamento, CORS, Rate Limiting, autenticação e autorização, respeitando as dependências entre eles.
+
+---
+
+### 🧪 07. Validação das implementações
+
+As melhorias foram incorporadas à aplicação e verificadas por meio de compilação e execução local durante o desenvolvimento.
+
+#### Endpoints de verificação
+
+```http
+GET /api/status
+GET /health/live
+GET /health/ready
+```
+
+**Status da API — `/api/status`**
+
+Retorna informações básicas sobre a aplicação, incluindo:
+
+- Estado do serviço.
+- Nome da API.
+- Timestamp UTC da consulta.
+
+**Liveness — `/health/live`**
+
+Verifica a disponibilidade básica da aplicação.
+
+**Readiness — `/health/ready`**
+
+Verifica a prontidão da API e a disponibilidade da conexão com o Oracle Database.
+
+#### Resumo das melhorias
+
+| Implementação | Benefício |
+|---|---|
+| 🚦 Rate Limiting | Controle de tráfego e redução de sobrecarga |
+| 🔁 Idempotência | Prevenção de ocorrências duplicadas |
+| 🩺 Health Checks | Monitoramento de disponibilidade |
+| 🌱 Seed inicial | Preparação automática dos dados de desenvolvimento |
+| 🌐 CORS | Integração com o frontend |
+| 🔌 Porta dinâmica | Flexibilidade de execução |
+| 📄 OpenAPI e Scalar | Documentação e testes interativos |
+
+---
+
 ## 🎓 Contexto acadêmico
 
 O Valia é um projeto acadêmico desenvolvido no curso de **Análise e Desenvolvimento de Sistemas**, integrando conhecimentos de desenvolvimento backend, bancos de dados, autenticação, arquitetura de software, APIs RESTful e integração mobile.
