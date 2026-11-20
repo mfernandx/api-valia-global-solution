@@ -1,5 +1,4 @@
-﻿
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ValiaApiWeb.Data;
 using ValiaApiWeb.Domain.Models;
 using ValiaApiWeb.Domain.Enums;

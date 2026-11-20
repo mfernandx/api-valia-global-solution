@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/TestResults/
+.git/
+.gitignore
+**/appsettings.Development.json
+**/PrivateStorage/
+**/*.user
+**/*.suo
